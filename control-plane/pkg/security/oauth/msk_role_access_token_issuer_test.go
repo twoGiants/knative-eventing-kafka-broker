@@ -17,22 +17,13 @@
 package oauth
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	// Test ARNs - specific to this test file
 	testRoleARN = "arn:aws:iam::123456789012:role/test-role"
-
-	// Test names - specific to this test file
-	testNameValidConfigWithRegionInData = "valid configuration with region in data"
-	testNameValidConfigWithAWSRegionEnv = "valid configuration with AWS_REGION env var"
-	testNameMissingRoleARN              = "missing role ARN"
-	testNameEmptyRoleARN                = "empty role ARN"
-	testNameDefaultRegionWithValidRole  = "default region with valid role ARN"
 )
 
 func TestNewMSKRoleAccessTokenIssuer(t *testing.T) {
@@ -43,22 +34,18 @@ func TestNewMSKRoleAccessTokenIssuer(t *testing.T) {
 		wantRegion  string
 		wantRoleARN string
 		wantErr     bool
-		setupEnv    func()
-		cleanupEnv  func()
 	}{
 		{
-			name: testNameValidConfigWithRegionInData,
+			name: "valid configuration with region in data",
 			data: map[string][]byte{
 				saslRoleARNKey: []byte(testRoleARN),
 				saslAWSRegion:  []byte(testRegionEuWest1),
 			},
 			wantRegion:  testRegionEuWest1,
 			wantRoleARN: testRoleARN,
-			setupEnv:    func() {},
-			cleanupEnv:  func() {},
 		},
 		{
-			name: testNameValidConfigWithAWSRegionEnv,
+			name: "valid configuration with AWS_REGION env var",
 			data: map[string][]byte{
 				saslRoleARNKey: []byte(testRoleARN),
 			},
@@ -67,57 +54,38 @@ func TestNewMSKRoleAccessTokenIssuer(t *testing.T) {
 			},
 			wantRegion:  testRegionUsWest2,
 			wantRoleARN: testRoleARN,
-			setupEnv: func() {
-				os.Setenv(awsRegionEnvVar, testRegionUsWest2)
-			},
-			cleanupEnv: func() {
-				os.Unsetenv(awsRegionEnvVar)
-			},
 		},
 		{
-			name: testNameMissingRoleARN,
+			name: "missing role ARN",
 			data: map[string][]byte{
 				saslAWSRegion: []byte(testRegionEuWest1),
 			},
-			wantErr:    true,
-			setupEnv:   func() {},
-			cleanupEnv: func() {},
+			wantErr: true,
 		},
 		{
-			name: testNameEmptyRoleARN,
+			name: "empty role ARN",
 			data: map[string][]byte{
 				saslRoleARNKey: []byte(""),
 				saslAWSRegion:  []byte(testRegionEuWest1),
 			},
-			wantErr:    true,
-			setupEnv:   func() {},
-			cleanupEnv: func() {},
+			wantErr: true,
 		},
 		{
-			name: testNameDefaultRegionWithValidRole,
+			name: "default region with valid role ARN",
 			data: map[string][]byte{
 				saslRoleARNKey: []byte(testRoleARN),
 			},
 			wantRegion:  testRegionUsEast1, // default region
 			wantRoleARN: testRoleARN,
-			setupEnv: func() {
-				os.Unsetenv(awsRegionEnvVar)
-				os.Unsetenv(awsDefaultRegionEnvVar)
-			},
-			cleanupEnv: func() {},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup environment
 			t.Setenv(awsRegionEnvVar, tt.envVars[awsRegionEnvVar])
 			t.Setenv(awsDefaultRegionEnvVar, tt.envVars[awsDefaultRegionEnvVar])
 
-			// Create the issuer
-			issuer, err := NewMSKRoleAccessTokenIssuer(tt.data)
-
-			// Check error
+			issuer, err := newMSKRoleAccessTokenIssuer(tt.data)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
@@ -125,8 +93,6 @@ func TestNewMSKRoleAccessTokenIssuer(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.NotNil(t, issuer)
-
-			// Check region and role ARN
 			assert.Equal(t, tt.wantRegion, issuer.region)
 			assert.Equal(t, tt.wantRoleARN, issuer.roleARN)
 		})
